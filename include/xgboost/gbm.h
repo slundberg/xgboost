@@ -119,7 +119,7 @@ class GradientBooster {
    */
   virtual void PredictContribution(DMatrix* dmat,
                            std::vector<bst_float>* out_contribs,
-                           unsigned ntree_limit = 0, bool approximate = false) = 0;
+                           unsigned ntree_limit = 0, bool approximate = false, bool gradient = false) = 0;
 
   /*!
    * \brief dump the model in the requested format

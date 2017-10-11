@@ -208,7 +208,7 @@ class CPUPredictor : public Predictor {
 
   void PredictContribution(DMatrix* p_fmat, std::vector<bst_float>* out_contribs,
                            const gbm::GBTreeModel& model, unsigned ntree_limit,
-                           bool approximate) override {
+                           bool approximate, bool gradients) override {
     const int nthread = omp_get_max_threads();
     InitThreadTemp(nthread,  model.param.num_feature);
     const MetaInfo& info = p_fmat->info();
@@ -219,13 +219,14 @@ class CPUPredictor : public Predictor {
     }
     const int ngroup = model.param.num_output_group;
     size_t ncolumns = model.param.num_feature + 1;
+    if (gradients) ncolumns = model.param.num_feature;
     // allocate space for (number of features + bias) times the number of rows
     std::vector<bst_float>& contribs = *out_contribs;
     contribs.resize(info.num_row * ncolumns * model.param.num_output_group);
     // make sure contributions is zeroed, we could be reusing a previously
     // allocated one
     std::fill(contribs.begin(), contribs.end(), 0);
-    if (approximate) {
+    if (approximate || gradients) {
       // initialize tree node mean values
       #pragma omp parallel for schedule(static)
       for (bst_omp_uint i = 0; i < ntree_limit; ++i) {
@@ -255,18 +256,22 @@ class CPUPredictor : public Predictor {
             if (model.tree_info[j] != gid) {
               continue;
             }
-            if (!approximate) {
-              model.trees[j]->CalculateContributions(feats, root_id, p_contribs);
-            } else {
+            if (gradients) {
+              model.trees[j]->CalculateGradients(feats, root_id, info.labels[row_idx], p_contribs);
+            } else if (approximate) {
               model.trees[j]->CalculateContributionsApprox(feats, root_id, p_contribs);
+            } else {
+              model.trees[j]->CalculateContributions(feats, root_id, p_contribs);
             }
           }
           feats.Drop(batch[i]);
           // add base margin to BIAS
-          if (base_margin.size() != 0) {
-            p_contribs[ncolumns - 1] += base_margin[row_idx * ngroup + gid];
-          } else {
-            p_contribs[ncolumns - 1] += model.base_margin;
+          if (!gradients) {
+            if (base_margin.size() != 0) {
+              p_contribs[ncolumns - 1] += base_margin[row_idx * ngroup + gid];
+            } else {
+              p_contribs[ncolumns - 1] += model.base_margin;
+            }
           }
         }
       }

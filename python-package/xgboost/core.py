@@ -990,7 +990,7 @@ class Booster(object):
         return self.eval_set([(data, name)], iteration)
 
     def predict(self, data, output_margin=False, ntree_limit=0, pred_leaf=False,
-                pred_contribs=False, approx_contribs=False):
+                pred_contribs=False, approx_contribs=False, pred_gradients=False):
         """
         Predict with data.
 
@@ -1025,6 +1025,10 @@ class Booster(object):
         approx_contribs : bool
             Approximate the contributions of each feature
 
+        pred_gradients : bool
+            Approximate gradients are computed for each sample assuming the label of the DMatrix
+            is the vector of target output gradients.
+
         Returns
         -------
         prediction : numpy array
@@ -1038,6 +1042,8 @@ class Booster(object):
             option_mask |= 0x04
         if approx_contribs:
             option_mask |= 0x08
+        if pred_gradients:
+            option_mask |= 0x16
 
         self._validate_features(data)
 

@@ -224,7 +224,7 @@ class GBLinear : public GradientBooster {
 
   void PredictContribution(DMatrix* p_fmat,
                            std::vector<bst_float>* out_contribs,
-                           unsigned ntree_limit, bool approximate) override {
+                           unsigned ntree_limit, bool approximate, bool gradients) override {
     if (model.weight.size() == 0) {
       model.InitModel();
     }

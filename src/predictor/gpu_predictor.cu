@@ -385,9 +385,10 @@ class GPUPredictor : public xgboost::Predictor {
                            std::vector<bst_float>* out_contribs,
                            const gbm::GBTreeModel& model,
                            unsigned ntree_limit,
-                           bool approximate) override {
+                           bool approximate,
+                           bool gradients) override {
     cpu_predictor->PredictContribution(p_fmat, out_contribs, model,
-                                       ntree_limit, approximate);
+                                       ntree_limit, approximate, gradients);
   }
 
   void Init(const std::vector<std::pair<std::string, std::string>>& cfg,

@@ -233,8 +233,8 @@ class GBTree : public GradientBooster {
 
   void PredictContribution(DMatrix* p_fmat,
                            std::vector<bst_float>* out_contribs,
-                           unsigned ntree_limit, bool approximate) override {
-    predictor->PredictContribution(p_fmat, out_contribs, model_, ntree_limit, approximate);
+                           unsigned ntree_limit, bool approximate, bool gradients) override {
+    predictor->PredictContribution(p_fmat, out_contribs, model_, ntree_limit, approximate, gradients);
   }
 
   std::vector<std::string> DumpModel(const FeatureMap& fmap,

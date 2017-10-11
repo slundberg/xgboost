@@ -112,7 +112,8 @@ class Learner : public rabit::Serializable {
                        unsigned ntree_limit = 0,
                        bool pred_leaf = false,
                        bool pred_contribs = false,
-                       bool approx_contribs = false) const = 0;
+                       bool approx_contribs = false,
+                       bool pred_gradients = false) const = 0;
   /*!
    * \brief Set additional attribute to the Booster.
    *  The property will be saved along the booster.
