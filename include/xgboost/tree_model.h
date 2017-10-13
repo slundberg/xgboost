@@ -643,8 +643,9 @@ inline void RegTree::CalculateGradients(const RegTree::FVec& feat, unsigned root
     chosen_id = this->GetNext(curr_id, feat.fvalue(split_index), feat.is_missing(split_index));
 
     // Determine the direction we want to move
-    bst_float left_diff = std::abs(-in_gradient - this->node_mean_values[left_id]);
-    bst_float right_diff = std::abs(-in_gradient - this->node_mean_values[right_id]);
+    // bst_float left_diff = std::abs(-in_gradient - this->node_mean_values[left_id]);
+    // bst_float right_diff = std::abs(-in_gradient - this->node_mean_values[right_id]);
+    bst_float diff = this->node_mean_values[right_id] - this->node_mean_values[left_id];
     // std::cout << "in_gradient = " << in_gradient << std::endl;
     // std::cout << "left_diff = " << left_diff << std::endl;
     // std::cout << "right_diff = " << right_diff << std::endl;
@@ -660,7 +661,7 @@ inline void RegTree::CalculateGradients(const RegTree::FVec& feat, unsigned root
     //     out_gradients[split_index] += left_diff-right_diff;
     //   //}
     // }
-    out_gradients[split_index] -= left_diff-right_diff;
+    out_gradients[split_index] += diff;// left_diff-right_diff;
     // std::cout << "out_gradients[split_index] = " << out_gradients[split_index] << std::endl;
   }
 }
