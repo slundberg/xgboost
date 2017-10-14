@@ -257,7 +257,7 @@ class CPUPredictor : public Predictor {
               continue;
             }
             if (gradients) {
-              model.trees[j]->CalculateGradients(feats, root_id, info.labels[row_idx], p_contribs);
+              model.trees[j]->CalculateGradients(feats, root_id, p_contribs);
             } else if (approximate) {
               model.trees[j]->CalculateContributionsApprox(feats, root_id, p_contribs);
             } else {

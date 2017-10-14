@@ -526,7 +526,7 @@ class RegTree: public TreeModel<bst_float, RTreeNodeStat> {
    * \param out_contribs output vector to hold the gradients for each feature
    */
   inline void CalculateGradients(const RegTree::FVec& feat, unsigned root_id,
-                                 bst_float in_gradient, bst_float *out_gradients) const;
+                                 bst_float *out_gradients) const;
 
   /*!
    * \brief get next position of the tree given current pid
@@ -630,39 +630,19 @@ inline bst_float RegTree::FillNodeMeanValue(int nid) {
 }
 
 inline void RegTree::CalculateGradients(const RegTree::FVec& feat, unsigned root_id,
-                                        bst_float in_gradient, bst_float *out_gradients) const {
+                                        bst_float *out_gradients) const {
   CHECK_GT(this->node_mean_values.size(), 0U);
   unsigned split_index;
-  int left_id, right_id, curr_id;
-  int chosen_id = static_cast<int>(root_id);
-  while (!(*this)[chosen_id].is_leaf()) {
-    curr_id = chosen_id;
+  int left_id, right_id;
+  int curr_id = static_cast<int>(root_id);
+  while (!(*this)[curr_id].is_leaf()) {
     split_index = (*this)[curr_id].split_index();
     left_id = (*this)[curr_id].cleft();
     right_id = (*this)[curr_id].cright();
-    chosen_id = this->GetNext(curr_id, feat.fvalue(split_index), feat.is_missing(split_index));
+    curr_id = this->GetNext(curr_id, feat.fvalue(split_index), feat.is_missing(split_index));
 
-    // Determine the direction we want to move
-    // bst_float left_diff = std::abs(-in_gradient - this->node_mean_values[left_id]);
-    // bst_float right_diff = std::abs(-in_gradient - this->node_mean_values[right_id]);
-    bst_float diff = this->node_mean_values[right_id] - this->node_mean_values[left_id];
-    // std::cout << "in_gradient = " << in_gradient << std::endl;
-    // std::cout << "left_diff = " << left_diff << std::endl;
-    // std::cout << "right_diff = " << right_diff << std::endl;
-    // std::cout << "split_index = " << split_index << std::endl;
-    // std::cout << "chosen_id == left_id = " << (chosen_id == left_id) << std::endl;
-    // std::cout << "out_gradients[split_index] = " << out_gradients[split_index] << std::endl;
-    // if (left_diff > right_diff) {
-    //   //if (chosen_id == right_id) {
-    //     out_gradients[split_index] += left_diff-right_diff;
-    //   //}
-    // } else {
-    //   //if (chosen_id == left_id) {
-    //     out_gradients[split_index] += left_diff-right_diff;
-    //   //}
-    // }
-    out_gradients[split_index] += diff;// left_diff-right_diff;
-    // std::cout << "out_gradients[split_index] = " << out_gradients[split_index] << std::endl;
+    // Gradient is assumed to just be the difference in expectations between the two sides of the tree
+    out_gradients[split_index] += this->node_mean_values[right_id] - this->node_mean_values[left_id];
   }
 }
 
