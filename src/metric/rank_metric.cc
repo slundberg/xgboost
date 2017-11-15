@@ -304,6 +304,40 @@ struct EvalMAP : public EvalRankList {
   }
 };
 
+/*! \brief Cox: Partial likelihood of the Cox proportioanl hazards model */
+struct EvalCox : public Metric {
+ public:
+  explicit EvalCox() {}
+  bst_float Eval(const std::vector<bst_float> &preds,
+                 const MetaInfo &info,
+                 bool distributed) const override {
+    CHECK(!distributed) << "Cox metric does not support distributed evaluation";
+    using namespace std;  // NOLINT(*)
+
+    const bst_omp_uint ndata = static_cast<bst_omp_uint>(info.labels.size());
+
+    // pre-compute a sum
+    bst_float exp_p_sum = 0;
+    for (omp_ulong i = 0; i < ndata; ++i) {
+      exp_p_sum += preds[i];
+    }
+
+    bst_float out = 0;
+    for (bst_omp_uint i = 0; i < ndata; ++i) {
+      if (info.labels[i] > 0) {
+        out -= log(preds[i]) - log(exp_p_sum);
+      }
+      exp_p_sum -= preds[i];
+    }
+
+    return out;
+  }
+
+  const char* Name() const override {
+    return "cox-nloglik";
+  }
+};
+
 XGBOOST_REGISTER_METRIC(AMS, "ams")
 .describe("AMS metric for higgs.")
 .set_body([](const char* param) { return new EvalAMS(param); });
@@ -323,5 +357,9 @@ XGBOOST_REGISTER_METRIC(NDCG, "ndcg")
 XGBOOST_REGISTER_METRIC(MAP, "map")
 .describe("map@k for rank.")
 .set_body([](const char* param) { return new EvalMAP(param); });
+
+XGBOOST_REGISTER_METRIC(Cox, "cox-nloglik")
+.describe("Negative log partial likelihood of Cox proportioanl hazards model.")
+.set_body([](const char* param) { return new EvalCox(); });
 }  // namespace metric
 }  // namespace xgboost
