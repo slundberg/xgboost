@@ -990,7 +990,7 @@ class Booster(object):
         return self.eval_set([(data, name)], iteration)
 
     def predict(self, data, output_margin=False, ntree_limit=0, pred_leaf=False,
-                pred_contribs=False, approx_contribs=False):
+                pred_contribs=False, approx_contribs=False, interaction_contribs=False):
         """
         Predict with data.
 
@@ -1025,6 +1025,11 @@ class Booster(object):
         approx_contribs : bool
             Approximate the contributions of each feature
 
+        interaction_contribs : bool
+            When this option and pred_contribs on, the output will be a matrix of
+            (nsample, nfeats, nfeats) indicating the SHAP interaction
+            values for each pair of features.
+
         Returns
         -------
         prediction : numpy array
@@ -1038,6 +1043,8 @@ class Booster(object):
             option_mask |= 0x04
         if approx_contribs:
             option_mask |= 0x08
+        if interaction_contribs:
+            option_mask |= 0x16
 
         self._validate_features(data)
 
@@ -1054,7 +1061,12 @@ class Booster(object):
         nrow = data.num_row()
         if preds.size != nrow and preds.size % nrow == 0:
             ncol = int(preds.size / nrow)
-            preds = preds.reshape(nrow, ncol)
+            if interaction_contribs:
+                s = int(np.sqrt(ncol))
+                assert s*s == ncol, "XGBoost returned a non-square interaction matrix!"
+                preds = preds.reshape(nrow, int(np.sqrt(ncol)), int(np.sqrt(ncol)))
+            else:
+                preds = preds.reshape(nrow, ncol)
         return preds
 
     def save_model(self, fname):

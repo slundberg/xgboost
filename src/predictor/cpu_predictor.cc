@@ -208,7 +208,9 @@ class CPUPredictor : public Predictor {
 
   void PredictContribution(DMatrix* p_fmat, std::vector<bst_float>* out_contribs,
                            const gbm::GBTreeModel& model, unsigned ntree_limit,
-                           bool approximate) override {
+                           bool approximate,
+                           int condition = 0,
+                           unsigned condition_feature = 0) override {
     const int nthread = omp_get_max_threads();
     InitThreadTemp(nthread,  model.param.num_feature);
     const MetaInfo& info = p_fmat->info();
@@ -256,7 +258,7 @@ class CPUPredictor : public Predictor {
               continue;
             }
             if (!approximate) {
-              model.trees[j]->CalculateContributions(feats, root_id, p_contribs);
+              model.trees[j]->CalculateContributions(feats, root_id, p_contribs, condition, condition_feature);
             } else {
               model.trees[j]->CalculateContributionsApprox(feats, root_id, p_contribs);
             }
@@ -267,6 +269,40 @@ class CPUPredictor : public Predictor {
             p_contribs[ncolumns - 1] += base_margin[row_idx * ngroup + gid];
           } else {
             p_contribs[ncolumns - 1] += model.base_margin;
+          }
+        }
+      }
+    }
+  }
+
+  void PredictInteractionContributions(DMatrix* p_fmat, std::vector<bst_float>* out_contribs,
+                                       const gbm::GBTreeModel& model, unsigned ntree_limit,
+                                       bool approximate) override {
+    const MetaInfo& info = p_fmat->info();
+    const int ngroup = model.param.num_output_group;
+    size_t ncolumns = model.param.num_feature;
+    const unsigned row_chunk = ncolumns * ncolumns * ngroup;
+    const unsigned mrow_chunk = ncolumns * ngroup;
+    const unsigned crow_chunk = (ncolumns+1) * ngroup;
+
+    // allocate space for (number of features^2) times the number of rows and tmp off/on contribs
+    std::vector<bst_float>& contribs = *out_contribs;
+    contribs.resize(info.num_row * ncolumns * ncolumns * ngroup);
+    std::vector<bst_float> contribs_off(info.num_row * (ncolumns+1) * ngroup);
+    std::vector<bst_float> contribs_on(info.num_row * (ncolumns+1) * ngroup);
+
+    // Compute the difference in effects when conditioning on each of the features on and off
+    // see: Axiomatic characterizations of probabilistic and cardinal-probabilistic interaction indices
+    for (int i = 0; i < ncolumns; ++i) {
+      PredictContribution(p_fmat, &contribs_off, model, ntree_limit, approximate, -1, i);
+      PredictContribution(p_fmat, &contribs_on, model, ntree_limit, approximate, 1, i);
+
+      for (int j = 0; j < info.num_row; ++j) {
+        for (int k = 0; k < ncolumns+1; ++k) {
+          for (int l = 0; l < model.param.num_output_group; ++l) {
+            const unsigned cind = j*crow_chunk + k*ngroup + l;
+            const unsigned oind = j*row_chunk + i*mrow_chunk + k*ngroup + l;
+            contribs[oind] = contribs_on[cind] - contribs_off[cind];
           }
         }
       }
