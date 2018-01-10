@@ -227,13 +227,13 @@ class CPUPredictor : public Predictor {
     // make sure contributions is zeroed, we could be reusing a previously
     // allocated one
     std::fill(contribs.begin(), contribs.end(), 0);
-    if (approximate) {
+    //if (approximate) {
       // initialize tree node mean values
       #pragma omp parallel for schedule(static)
       for (bst_omp_uint i = 0; i < ntree_limit; ++i) {
         model.trees[i]->FillNodeMeanValues();
       }
-    }
+    //}
     // start collecting the contributions
     dmlc::DataIter<RowBatch>* iter = p_fmat->RowIterator();
     const std::vector<bst_float>& base_margin = info.base_margin;
@@ -302,6 +302,8 @@ class CPUPredictor : public Predictor {
           for (int l = 0; l < model.param.num_output_group; ++l) {
             const unsigned cind = j*crow_chunk + k*ngroup + l;
             const unsigned oind = j*row_chunk + i*mrow_chunk + k*ngroup + l;
+            //std::cout << k << " on - off = " << contribs_on[cind] << " - " << contribs_off[cind] << "\n";
+            //if (k == i) contribs[oind] = contribs_on[cind] + contribs_off[cind];
             contribs[oind] = contribs_on[cind] - contribs_off[cind];
           }
         }
