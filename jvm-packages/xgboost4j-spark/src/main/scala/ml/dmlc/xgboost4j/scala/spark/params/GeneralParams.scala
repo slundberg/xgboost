@@ -71,6 +71,28 @@ trait GeneralParams extends Params {
   val missing = new FloatParam(this, "missing", "the value treated as missing")
 
   /**
+    * the interval to check whether total numCores is no smaller than nWorkers. default: 30 minutes
+    */
+  val timeoutRequestWorkers = new LongParam(this, "timeout_request_workers", "the maximum time to" +
+    " request new Workers if numCores are insufficient. The timeout will be disabled if this" +
+    " value is set smaller than or equal to 0.")
+
+  /**
+    * The hdfs folder to load and save checkpoint boosters. default: `empty_string`
+    */
+  val checkpointPath = new Param[String](this, "checkpoint_path", "the hdfs folder to load and " +
+    "save checkpoints. The job will try to load the existing booster as the starting point for " +
+    "training. If saving_frequency is also set, the job will save a checkpoint every a few rounds.")
+
+  /**
+    * The frequency to save checkpoint boosters. default: 0
+    */
+  val savingFrequency = new IntParam(this, "saving_frequency", "if checkpoint_path is also set," +
+    " the job will save checkpoints at this frequency. If the job fails and gets restarted with" +
+    " same setting, it will load the existing booster instead of training from scratch." +
+    " Checkpoint will be disabled if set to 0.")
+
+  /**
     * Rabit tracker configurations. The parameter must be provided as an instance of the
     * TrackerConf class, which has the following definition:
     *
@@ -105,6 +127,7 @@ trait GeneralParams extends Params {
   setDefault(round -> 1, nWorkers -> 1, numThreadPerTask -> 1,
     useExternalMemory -> false, silent -> 0,
     customObj -> null, customEval -> null, missing -> Float.NaN,
-    trackerConf -> TrackerConf(), seed -> 0
+    trackerConf -> TrackerConf(), seed -> 0, timeoutRequestWorkers -> 30 * 60 * 1000L,
+    checkpointPath -> "", savingFrequency -> 0
   )
 }

@@ -15,7 +15,7 @@ import scipy.sparse
 
 from .libpath import find_lib_path
 
-from .compat import STRING_TYPES, PY3, DataFrame, py_str, PANDAS_INSTALLED
+from .compat import STRING_TYPES, PY3, DataFrame, MultiIndex, py_str, PANDAS_INSTALLED
 
 # c_bst_ulong corresponds to bst_ulong defined in xgboost/c_api.h
 c_bst_ulong = ctypes.c_uint64
@@ -159,6 +159,8 @@ def c_str(string):
 
 def c_array(ctype, values):
     """Convert a python string to c array."""
+    if isinstance(values, np.ndarray) and values.dtype.itemsize == ctypes.sizeof(ctype):
+        return (ctype * len(values)).from_buffer_copy(values)
     return (ctype * len(values))(*values)
 
 
@@ -184,7 +186,7 @@ Did not expect the data types in fields """
         raise ValueError(msg + ', '.join(bad_fields))
 
     if feature_names is None:
-        if hasattr(data.columns, 'to_frame'):  # MultiIndex
+        if isinstance(data.columns, MultiIndex):
             feature_names = [
                 ' '.join(map(str, i))
                 for i in data.columns
@@ -863,7 +865,7 @@ class Booster(object):
         Parameters
         ----------
         params: dict/list/str
-           list of key,value paris, dict of key to value or simply str key
+           list of key,value pairs, dict of key to value or simply str key
         value: optional
            value of the specified parameter, when params is str key
         """

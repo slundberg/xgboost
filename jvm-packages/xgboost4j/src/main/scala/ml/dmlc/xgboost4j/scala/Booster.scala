@@ -16,8 +16,6 @@
 
 package ml.dmlc.xgboost4j.scala
 
-import java.io.IOException
-
 import com.esotericsoftware.kryo.io.{Output, Input}
 import com.esotericsoftware.kryo.{Kryo, KryoSerializable}
 import ml.dmlc.xgboost4j.java.{Booster => JBooster}
@@ -25,7 +23,13 @@ import ml.dmlc.xgboost4j.java.XGBoostError
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-class Booster private[xgboost4j](private var booster: JBooster)
+/**
+  * Booster for xgboost, this is a model API that support interactive build of a XGBoost Model
+  *
+  * DEVELOPER WARNING: A Java Booster must not be shared by more than one Scala Booster
+  * @param booster the java booster object.
+  */
+class Booster private[xgboost4j](private[xgboost4j] var booster: JBooster)
   extends Serializable  with KryoSerializable {
 
   /**

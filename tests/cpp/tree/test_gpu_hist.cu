@@ -7,8 +7,8 @@
 #include "../helpers.h"
 #include "gtest/gtest.h"
 
-#include "../../../src/tree/updater_gpu_hist_experimental.cu"
 #include "../../../src/gbm/gbtree_model.h"
+#include "../../../src/tree/updater_gpu_hist.cu"
 
 namespace xgboost {
 namespace tree {
@@ -16,13 +16,16 @@ TEST(gpu_hist_experimental, TestSparseShard) {
   int rows = 100;
   int columns = 80;
   int max_bins = 4;
-  auto dmat = CreateDMatrix(rows, columns, 0.9);
+  auto dmat = CreateDMatrix(rows, columns, 0.9f);
   common::HistCutMatrix hmat;
   common::GHistIndexMatrix gmat;
   hmat.Init(dmat.get(), max_bins);
   gmat.cut = &hmat;
   gmat.Init(dmat.get());
-  DeviceShard shard(0, 0, gmat, 0, rows, hmat.row_ptr.back(), TrainParam());
+  TrainParam p;
+  p.max_depth = 6;
+  DeviceShard shard(0, 0, gmat, 0, rows, hmat.row_ptr.back(),
+                    p);
 
   ASSERT_LT(shard.row_stride, columns);
 
@@ -33,7 +36,7 @@ TEST(gpu_hist_experimental, TestSparseShard) {
 
   for (int i = 0; i < rows; i++) {
     int row_offset = 0;
-    for (int j = gmat.row_ptr[i]; j < gmat.row_ptr[i + 1]; j++) {
+    for (auto j = gmat.row_ptr[i]; j < gmat.row_ptr[i + 1]; j++) {
       ASSERT_EQ(gidx[i * shard.row_stride + row_offset], gmat.index[j]);
       row_offset++;
     }
@@ -54,7 +57,10 @@ TEST(gpu_hist_experimental, TestDenseShard) {
   hmat.Init(dmat.get(), max_bins);
   gmat.cut = &hmat;
   gmat.Init(dmat.get());
-  DeviceShard shard(0, 0, gmat, 0, rows, hmat.row_ptr.back(), TrainParam());
+  TrainParam p;
+  p.max_depth = 6;
+  DeviceShard shard(0, 0, gmat, 0, rows, hmat.row_ptr.back(),
+                    p);
 
   ASSERT_EQ(shard.row_stride, columns);
 

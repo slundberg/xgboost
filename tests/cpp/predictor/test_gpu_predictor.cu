@@ -15,8 +15,11 @@ TEST(gpu_predictor, Test) {
   std::unique_ptr<Predictor> cpu_predictor =
       std::unique_ptr<Predictor>(Predictor::Create("cpu_predictor"));
 
+  gpu_predictor->Init({}, {});
+  cpu_predictor->Init({}, {});
+
   std::vector<std::unique_ptr<RegTree>> trees;
-  trees.push_back(std::unique_ptr<RegTree>());
+  trees.push_back(std::unique_ptr<RegTree>(new RegTree()));
   trees.back()->InitModel();
   (*trees.back())[0].set_leaf(1.5f);
   (*trees.back()).stat(0).sum_hess = 1.0f;
@@ -39,7 +42,6 @@ TEST(gpu_predictor, Test) {
     ASSERT_LT(std::abs(gpu_out_predictions[i] - cpu_out_predictions[i]),
               abs_tolerance);
   }
-
   // Test predict instance
   auto batch = dmat->RowIterator()->Value();
   for (int i = 0; i < batch.size; i++) {

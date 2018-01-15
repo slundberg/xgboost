@@ -115,6 +115,7 @@ class Learner : public rabit::Serializable {
                        bool pred_contribs = false,
                        bool approx_contribs = false,
                        bool interaction_contribs = false) const = 0;
+
   /*!
    * \brief Set additional attribute to the Booster.
    *  The property will be saved along the booster.

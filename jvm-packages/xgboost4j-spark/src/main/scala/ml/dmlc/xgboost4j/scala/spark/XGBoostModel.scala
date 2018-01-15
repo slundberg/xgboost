@@ -42,6 +42,21 @@ abstract class XGBoostModel(protected var _booster: Booster)
   extends PredictionModel[MLVector, XGBoostModel] with BoosterParams with Serializable
     with Params with MLWritable {
 
+  private var trainingSummary: Option[XGBoostTrainingSummary] = None
+
+  /**
+   * Returns summary (e.g. train/test objective history) of model on the
+   * training set. An exception is thrown if no summary is available.
+   */
+  def summary: XGBoostTrainingSummary = trainingSummary.getOrElse {
+    throw new IllegalStateException("No training summary available for this XGBoostModel")
+  }
+
+  private[spark] def setSummary(summary: XGBoostTrainingSummary): this.type = {
+    trainingSummary = Some(summary)
+    this
+  }
+
   def setLabelCol(name: String): XGBoostModel = set(labelCol, name)
 
   // scalastyle:off
@@ -116,7 +131,7 @@ abstract class XGBoostModel(protected var _booster: Booster)
               null
             }
           }
-          val dMatrix = new DMatrix(labeledPointsPartition.map(_.features.asXGB), cacheFileName)
+          val dMatrix = new DMatrix(labeledPointsPartition.map(_.asXGB), cacheFileName)
           try {
             if (groupData != null) {
               dMatrix.setGroup(groupData(TaskContext.getPartitionId()).toArray)
@@ -154,12 +169,12 @@ abstract class XGBoostModel(protected var _booster: Booster)
   def predict(testSet: RDD[MLDenseVector], missingValue: Float): RDD[Array[Float]] = {
     val broadcastBooster = testSet.sparkContext.broadcast(_booster)
     testSet.mapPartitions { testSamples =>
-      val sampleArray = testSamples.toList
-      val numRows = sampleArray.size
-      val numColumns = sampleArray.head.size
+      val sampleArray = testSamples.toArray
+      val numRows = sampleArray.length
       if (numRows == 0) {
         Iterator()
       } else {
+        val numColumns = sampleArray.head.size
         val rabitEnv = Map("DMLC_TASK_ID" -> TaskContext.getPartitionId().toString)
         Rabit.init(rabitEnv.asJava)
         // translate to required format
@@ -328,6 +343,8 @@ abstract class XGBoostModel(protected var _booster: Booster)
   }
 
   def booster: Booster = _booster
+
+  def version: Int = this.booster.booster.getVersion
 
   override def copy(extra: ParamMap): XGBoostModel = defaultCopy(extra)
 

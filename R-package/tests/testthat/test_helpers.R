@@ -82,6 +82,12 @@ test_that("predict feature contributions works", {
   pred <- predict(bst.Tree, sparse_matrix, outputmargin = TRUE)
   expect_lt(max(abs(rowSums(pred_contr) - pred)), 1e-5)
 
+  # must work with data that has no column names
+  X <- sparse_matrix
+  colnames(X) <- NULL
+  expect_error(pred_contr_ <- predict(bst.Tree, X, predcontrib = TRUE), regexp = NA)
+  expect_equal(pred_contr, pred_contr_, check.attributes = FALSE)
+
   # gbtree binary classifier (approximate method)
   expect_error(pred_contr <- predict(bst.Tree, sparse_matrix, predcontrib = TRUE, approxcontrib = TRUE), regexp = NA)
   expect_equal(dim(pred_contr), c(nrow(sparse_matrix), ncol(sparse_matrix) + 1))
@@ -287,6 +293,13 @@ test_that("xgb.plot.deepness works", {
   expect_equal(colnames(d2p), c("ID", "Tree", "Depth", "Cover", "Weight"))
   xgb.plot.deepness(model = bst.Tree, which = "med.depth")
   xgb.ggplot.deepness(model = bst.Tree)
+})
+
+test_that("xgb.plot.shap works", {
+  sh <- xgb.plot.shap(data = sparse_matrix, model = bst.Tree, top_n = 2, col = 4)
+  expect_equal(names(sh), c("data", "shap_contrib"))
+  expect_equal(NCOL(sh$data), 2)
+  expect_equal(NCOL(sh$shap_contrib), 2)
 })
 
 test_that("check.deprecation works", {

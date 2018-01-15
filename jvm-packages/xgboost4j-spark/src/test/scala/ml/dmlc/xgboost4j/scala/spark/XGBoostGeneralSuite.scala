@@ -20,11 +20,10 @@ import java.nio.file.Files
 import java.util.concurrent.LinkedBlockingDeque
 
 import scala.util.Random
-
 import ml.dmlc.xgboost4j.java.Rabit
 import ml.dmlc.xgboost4j.scala.DMatrix
 import ml.dmlc.xgboost4j.scala.rabit.RabitTracker
-
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.feature.{LabeledPoint => MLLabeledPoint}
 import org.apache.spark.ml.linalg.{DenseVector, Vectors, Vector => SparkVector}
@@ -75,13 +74,14 @@ class XGBoostGeneralSuite extends FunSuite with PerTest {
 
   test("build RDD containing boosters with the specified worker number") {
     val trainingRDD = sc.parallelize(Classification.train)
+    val partitionedRDD = XGBoost.repartitionForTraining(trainingRDD, 2)
     val boosterRDD = XGBoost.buildDistributedBoosters(
-      trainingRDD,
+      partitionedRDD,
       List("eta" -> "1", "max_depth" -> "6", "silent" -> "1",
         "objective" -> "binary:logistic").toMap,
       new java.util.HashMap[String, String](),
-      numWorkers = 2, round = 5, eval = null, obj = null, useExternalMemory = true,
-      missing = Float.NaN)
+      round = 5, eval = null, obj = null, useExternalMemory = true,
+      missing = Float.NaN, prevBooster = null)
     val boosterCount = boosterRDD.count()
     assert(boosterCount === 2)
   }
@@ -262,100 +262,24 @@ class XGBoostGeneralSuite extends FunSuite with PerTest {
     println(xgBoostModel.predict(testRDD).collect().length === 0)
   }
 
-  test("test model consistency after save and load") {
-    import DataUtils._
-    val eval = new EvalError()
-    val trainingRDD = sc.parallelize(Classification.train).map(_.asML)
-    val testSetDMatrix = new DMatrix(Classification.test.iterator)
-    val tempDir = Files.createTempDirectory("xgboosttest-")
-    val tempFile = Files.createTempFile(tempDir, "", "")
-    val paramMap = Map("eta" -> "1", "max_depth" -> "2", "silent" -> "1",
-      "objective" -> "binary:logistic")
-    val xgBoostModel = XGBoost.trainWithRDD(trainingRDD, paramMap, 5, numWorkers)
-    val evalResults = eval.eval(xgBoostModel.booster.predict(testSetDMatrix, outPutMargin = true),
-      testSetDMatrix)
-    assert(evalResults < 0.1)
-    xgBoostModel.saveModelAsHadoopFile(tempFile.toFile.getAbsolutePath)
-    val loadedXGBooostModel = XGBoost.loadModelFromHadoopFile(tempFile.toFile.getAbsolutePath)
-    val predicts = loadedXGBooostModel.booster.predict(testSetDMatrix, outPutMargin = true)
-    val loadedEvalResults = eval.eval(predicts, testSetDMatrix)
-    assert(loadedEvalResults == evalResults)
-  }
-
-  test("test save and load of different types of models") {
-    import DataUtils._
-    val tempDir = Files.createTempDirectory("xgboosttest-")
-    val tempFile = Files.createTempFile(tempDir, "", "")
-    var trainingRDD = sc.parallelize(Classification.train).map(_.asML)
-    var paramMap = Map("eta" -> "1", "max_depth" -> "6", "silent" -> "1",
-      "objective" -> "reg:linear")
-    // validate regression model
-    var xgBoostModel = XGBoost.trainWithRDD(trainingRDD, paramMap, round = 5,
-      nWorkers = numWorkers, useExternalMemory = false)
-    xgBoostModel.setFeaturesCol("feature_col")
-    xgBoostModel.setLabelCol("label_col")
-    xgBoostModel.setPredictionCol("prediction_col")
-    xgBoostModel.saveModelAsHadoopFile(tempFile.toFile.getAbsolutePath)
-    var loadedXGBoostModel = XGBoost.loadModelFromHadoopFile(tempFile.toFile.getAbsolutePath)
-    assert(loadedXGBoostModel.isInstanceOf[XGBoostRegressionModel])
-    assert(loadedXGBoostModel.getFeaturesCol == "feature_col")
-    assert(loadedXGBoostModel.getLabelCol == "label_col")
-    assert(loadedXGBoostModel.getPredictionCol == "prediction_col")
-    // classification model
-    paramMap = Map("eta" -> "1", "max_depth" -> "6", "silent" -> "1",
-      "objective" -> "binary:logistic")
-    xgBoostModel = XGBoost.trainWithRDD(trainingRDD, paramMap, round = 5,
-      nWorkers = numWorkers, useExternalMemory = false)
-    xgBoostModel.asInstanceOf[XGBoostClassificationModel].setRawPredictionCol("raw_col")
-    xgBoostModel.asInstanceOf[XGBoostClassificationModel].setThresholds(Array(0.5, 0.5))
-    xgBoostModel.saveModelAsHadoopFile(tempFile.toFile.getAbsolutePath)
-    loadedXGBoostModel = XGBoost.loadModelFromHadoopFile(tempFile.toFile.getAbsolutePath)
-    assert(loadedXGBoostModel.isInstanceOf[XGBoostClassificationModel])
-    assert(loadedXGBoostModel.asInstanceOf[XGBoostClassificationModel].getRawPredictionCol ==
-      "raw_col")
-    assert(loadedXGBoostModel.asInstanceOf[XGBoostClassificationModel].getThresholds.deep ==
-      Array(0.5, 0.5).deep)
-    assert(loadedXGBoostModel.getFeaturesCol == "features")
-    assert(loadedXGBoostModel.getLabelCol == "label")
-    assert(loadedXGBoostModel.getPredictionCol == "prediction")
-    // (multiclass) classification model
-    trainingRDD = sc.parallelize(MultiClassification.train).map(_.asML)
-    paramMap = Map("eta" -> "1", "max_depth" -> "6", "silent" -> "1",
-      "objective" -> "multi:softmax", "num_class" -> "6")
-    xgBoostModel = XGBoost.trainWithRDD(trainingRDD, paramMap, round = 5,
-      nWorkers = numWorkers, useExternalMemory = false)
-    xgBoostModel.asInstanceOf[XGBoostClassificationModel].setRawPredictionCol("raw_col")
-    xgBoostModel.asInstanceOf[XGBoostClassificationModel].setThresholds(
-      Array(0.5, 0.5, 0.5, 0.5, 0.5, 0.5))
-    xgBoostModel.saveModelAsHadoopFile(tempFile.toFile.getAbsolutePath)
-    loadedXGBoostModel = XGBoost.loadModelFromHadoopFile(tempFile.toFile.getAbsolutePath)
-    assert(loadedXGBoostModel.isInstanceOf[XGBoostClassificationModel])
-    assert(loadedXGBoostModel.asInstanceOf[XGBoostClassificationModel].getRawPredictionCol ==
-      "raw_col")
-    assert(loadedXGBoostModel.asInstanceOf[XGBoostClassificationModel].getThresholds.deep ==
-      Array(0.5, 0.5, 0.5, 0.5, 0.5, 0.5).deep)
-    assert(loadedXGBoostModel.asInstanceOf[XGBoostClassificationModel].numOfClasses == 6)
-    assert(loadedXGBoostModel.getFeaturesCol == "features")
-    assert(loadedXGBoostModel.getLabelCol == "label")
-    assert(loadedXGBoostModel.getPredictionCol == "prediction")
-  }
-
   test("test use groupData") {
     import DataUtils._
     val trainingRDD = sc.parallelize(Ranking.train0, numSlices = 1).map(_.asML)
     val trainGroupData: Seq[Seq[Int]] = Seq(Ranking.trainGroup0)
     val testRDD = sc.parallelize(Ranking.test, numSlices = 1).map(_.features)
 
-    val paramMap = Map("eta" -> "1", "max_depth" -> "6", "silent" -> "1",
+    val paramMap = Map("eta" -> "1", "max_depth" -> "2", "silent" -> "1",
       "objective" -> "rank:pairwise", "eval_metric" -> "ndcg", "groupData" -> trainGroupData)
 
-    val xgBoostModel = XGBoost.trainWithRDD(trainingRDD, paramMap, 5, nWorkers = 1)
+    val xgBoostModel = XGBoost.trainWithRDD(trainingRDD, paramMap, 2, nWorkers = 1)
     val predRDD = xgBoostModel.predict(testRDD)
     val predResult1: Array[Array[Float]] = predRDD.collect()
     assert(testRDD.count() === predResult1.length)
 
     val avgMetric = xgBoostModel.eval(trainingRDD, "test", iter = 0, groupData = trainGroupData)
     assert(avgMetric contains "ndcg")
+    // If the labels were lost ndcg comes back as 1.0
+    assert(avgMetric.split('=')(1).toFloat < 1F)
   }
 
   test("test use nested groupData") {
@@ -375,5 +299,71 @@ class XGBoostGeneralSuite extends FunSuite with PerTest {
     val predRDD = xgBoostModel.predict(testRDD)
     val predResult1: Array[Array[Float]] = predRDD.collect()
     assert(testRDD.count() === predResult1.length)
+  }
+
+  test("training with spark parallelism checks disabled") {
+    import DataUtils._
+    val eval = new EvalError()
+    val trainingRDD = sc.parallelize(Classification.train).map(_.asML)
+    val testSetDMatrix = new DMatrix(Classification.test.iterator)
+    val paramMap = List("eta" -> "1", "max_depth" -> "6", "silent" -> "1",
+      "objective" -> "binary:logistic", "timeout_request_workers" -> 0L).toMap
+    val xgBoostModel = XGBoost.trainWithRDD(trainingRDD, paramMap, round = 5,
+      nWorkers = numWorkers)
+    assert(eval.eval(xgBoostModel.booster.predict(testSetDMatrix, outPutMargin = true),
+      testSetDMatrix) < 0.1)
+  }
+
+  test("isClassificationTask correctly classifies supported objectives") {
+    import org.scalatest.prop.TableDrivenPropertyChecks._
+
+    val objectives = Table(
+      ("isClassificationTask", "params"),
+      (true, Map("obj_type" -> "classification")),
+      (false, Map("obj_type" -> "regression")),
+      (false, Map("objective" -> "rank:ndcg")),
+      (false, Map("objective" -> "rank:pairwise")),
+      (false, Map("objective" -> "rank:map")),
+      (false, Map("objective" -> "count:poisson")),
+      (true, Map("objective" -> "binary:logistic")),
+      (true, Map("objective" -> "binary:logitraw")),
+      (true, Map("objective" -> "multi:softmax")),
+      (true, Map("objective" -> "multi:softprob")),
+      (false, Map("objective" -> "reg:linear")),
+      (false, Map("objective" -> "reg:logistic")),
+      (false, Map("objective" -> "reg:gamma")),
+      (false, Map("objective" -> "reg:tweedie")))
+    forAll (objectives) { (isClassificationTask: Boolean, params: Map[String, String]) =>
+      assert(XGBoost.isClassificationTask(params) == isClassificationTask)
+    }
+  }
+
+  test("training with saving checkpoint boosters") {
+    import DataUtils._
+    val eval = new EvalError()
+    val trainingRDD = sc.parallelize(Classification.train).map(_.asML)
+    val testSetDMatrix = new DMatrix(Classification.test.iterator)
+
+    val tmpPath = Files.createTempDirectory("model1").toAbsolutePath.toString
+    val paramMap = List("eta" -> "1", "max_depth" -> 2, "silent" -> "1",
+      "objective" -> "binary:logistic", "checkpoint_path" -> tmpPath,
+      "saving_frequency" -> 2).toMap
+    val prevModel = XGBoost.trainWithRDD(trainingRDD, paramMap, round = 5,
+      nWorkers = numWorkers)
+    def error(model: XGBoostModel): Float = eval.eval(
+      model.booster.predict(testSetDMatrix, outPutMargin = true), testSetDMatrix)
+
+    // Check only one model is kept after training
+    val files = FileSystem.get(sc.hadoopConfiguration).listStatus(new Path(tmpPath))
+    assert(files.length == 1)
+    assert(files.head.getPath.getName == "8.model")
+    val tmpModel = XGBoost.loadModelFromHadoopFile(s"$tmpPath/8.model")
+
+    // Train next model based on prev model
+    val nextModel = XGBoost.trainWithRDD(trainingRDD, paramMap, round = 8,
+      nWorkers = numWorkers)
+    assert(error(tmpModel) > error(prevModel))
+    assert(error(prevModel) > error(nextModel))
+    assert(error(nextModel) < 0.1)
   }
 }
