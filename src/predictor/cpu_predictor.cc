@@ -209,8 +209,8 @@ class CPUPredictor : public Predictor {
   void PredictContribution(DMatrix* p_fmat, std::vector<bst_float>* out_contribs,
                            const gbm::GBTreeModel& model, unsigned ntree_limit,
                            bool approximate,
-                           int condition = 0,
-                           unsigned condition_feature = 0) override {
+                           int condition,
+                           unsigned condition_feature) override {
     const int nthread = omp_get_max_threads();
     InitThreadTemp(nthread,  model.param.num_feature);
     const MetaInfo& info = p_fmat->info();
@@ -302,8 +302,6 @@ class CPUPredictor : public Predictor {
           for (int l = 0; l < model.param.num_output_group; ++l) {
             const unsigned cind = j*crow_chunk + k*ngroup + l;
             const unsigned oind = j*row_chunk + i*mrow_chunk + k*ngroup + l;
-            //std::cout << k << " on - off = " << contribs_on[cind] << " - " << contribs_off[cind] << "\n";
-            //if (k == i) contribs[oind] = contribs_on[cind] + contribs_off[cind];
             contribs[oind] = contribs_on[cind] - contribs_off[cind];
           }
         }

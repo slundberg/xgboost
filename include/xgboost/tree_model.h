@@ -803,39 +803,11 @@ inline void RegTree::CalculateContributions(const RegTree::FVec& feat, unsigned 
   if (condition == 0) {
     bst_float node_value = this->node_mean_values[static_cast<int>(root_id)];
     out_contribs[feat.size()] += node_value;
-
-    // bst_float base_value = 0.0;
-    // bst_float total_cover = 0;
-    // for (unsigned i = 0; i < (*this).param.num_nodes; ++i) {
-    //   const auto node = (*this)[i];
-    //   if (node.is_leaf()) {
-    //     const auto cover = this->stat(i).sum_hess;
-    //     base_value += cover*node.leaf_value();
-    //     total_cover += cover;
-    //   }
-    // }
-    // std::cout << "cover " << this->stat(0).sum_hess << " " << total_cover << "\n";
-    // out_contribs[feat.size()] += base_value / total_cover;
   }
 
   // Preallocate space for the unique path data
   const int maxd = this->MaxDepth(root_id)+2;
   PathElement *unique_path_data = new PathElement[(maxd*(maxd+1))/2];
-
-  // if we are conditioning on a feature then we initialize the unique_path_data to reflect this
-  // unsigned unique_depth = 0;
-  // if (condition != 0) {
-  //   unique_depth = 1;
-  //   unique_path_data[0].feature_index = condition_feature;
-  //   unique_path_data[0].pweight = 1;
-  //   if (condition > 0) {
-  //     unique_path_data[0].zero_fraction = 0;
-  //     unique_path_data[0].one_fraction = 1;
-  //   } else {
-  //     unique_path_data[0].zero_fraction = 1;
-  //     unique_path_data[0].one_fraction = 0;
-  //   }
-  // }
 
   TreeShap(feat, out_contribs, root_id, 0, unique_path_data, 1, 1, -1, condition, condition_feature, 1);
   delete[] unique_path_data;

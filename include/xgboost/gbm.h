@@ -126,6 +126,7 @@ class GradientBooster {
 
   virtual void PredictInteractionContributions(DMatrix* dmat,
                            std::vector<bst_float>* out_contribs,
+                           unsigned ntree_limit, bool approximate) = 0;
 
   /*!
    * \brief dump the model in the requested format
