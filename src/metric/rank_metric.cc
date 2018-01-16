@@ -316,21 +316,30 @@ struct EvalCox : public Metric {
 
     const bst_omp_uint ndata = static_cast<bst_omp_uint>(info.labels.size());
 
-    // pre-compute a sum
-    bst_float exp_p_sum = 0;
+    // pre-compute a sum for the denominator
+    double exp_p_sum = 0; // we use double because we might need the precision with large datasets
     for (omp_ulong i = 0; i < ndata; ++i) {
       exp_p_sum += preds[i];
     }
 
-    bst_float out = 0;
+    double out = 0;
+    double accumulated_sum = 0;
+    bst_omp_uint num_events = 0;
     for (bst_omp_uint i = 0; i < ndata; ++i) {
       if (info.labels[i] > 0) {
         out -= log(preds[i]) - log(exp_p_sum);
+        ++num_events;
       }
-      exp_p_sum -= preds[i];
+
+      // only update the denominator after we move forward in time (labels are sorted)
+      accumulated_sum += preds[i];
+      if (i == ndata-1 || std::abs(info.labels[i]) < std::abs(info.labels[i+1])) {
+        exp_p_sum -= accumulated_sum;
+        accumulated_sum = 0;
+      }
     }
 
-    return out;
+    return out/num_events; // normalize by the number of events
   }
 
   const char* Name() const override {

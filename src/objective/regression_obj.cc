@@ -269,46 +269,49 @@ class CoxRegression : public ObjFunction {
     CHECK_EQ(preds.size(), info.labels.size()) << "labels are not correctly provided";
     out_gpair->resize(preds.size());
 
-    // check if labels are sorted by absolute value
-    bool label_correct = true;
-    // start calculating gradient
+    bool label_correct = true; // we check if labels are sorted by absolute value
     const omp_ulong ndata = static_cast<omp_ulong>(preds.size()); // NOLINT(*)
 
     // pre-compute a sum
-    bst_float exp_p_sum = 0;
+    double exp_p_sum = 0; // we use double because we might need the precision with large datasets
     for (omp_ulong i = 0; i < ndata; ++i) {
       exp_p_sum += std::exp(preds[i]);
     }
 
     // start calculating grad and hess
-    bst_float r_k = 0;
-    bst_float s_k = 0;
-    bst_float last_exp_p = 0.0;
-    bst_float last_abs_y = 0.0;
+    double r_k = 0;
+    double s_k = 0;
+    double last_exp_p = 0.0;
+    double last_abs_y = 0.0;
+    double accumulated_sum = 0;
     for (omp_ulong i = 0; i < ndata; ++i) { // NOLINT(*)
-      exp_p_sum -= last_exp_p;
+      const double p = preds[i];
+      const double exp_p = std::exp(p);
+      const double w = info.GetWeight(i);
+      const double y = info.labels[i];
+      const double abs_y = std::abs(y);
 
-      const bst_float p = preds[i];
-      const bst_float exp_p = std::exp(p);
-      const bst_float w = info.GetWeight(i);
-      const bst_float y = info.labels[i];
+      // only update the denominator after we move forward in time (labels are sorted)
+      // this is Breslow's method for ties
+      accumulated_sum += last_exp_p;
+      if (last_abs_y < abs_y) {
+        exp_p_sum -= accumulated_sum;
+        accumulated_sum = 0;
+      } else if (last_abs_y > abs_y) {
+        label_correct = false;
+        break;
+      }
 
       if (y > 0) {
         r_k += 1.0/exp_p_sum;
         s_k += 1.0/(exp_p_sum*exp_p_sum);
       }
 
-      const bst_float grad = exp_p*r_k - static_cast<bst_float>(y > 0);
-      const bst_float hess = exp_p*r_k - exp_p*exp_p * s_k;
+      const double grad = exp_p*r_k - static_cast<bst_float>(y > 0);
+      const double hess = exp_p*r_k - exp_p*exp_p * s_k;
+      out_gpair->at(i) = bst_gpair(grad * w, hess * w);
 
-      if (std::abs(y) >= last_abs_y) {
-        out_gpair->at(i) = bst_gpair(grad * w, hess * w);
-      } else {
-        label_correct = false;
-        break;
-      }
-
-      last_abs_y = std::abs(y);
+      last_abs_y = abs_y;
       last_exp_p = exp_p;
     }
     CHECK(label_correct) << "CoxRegression: labels must be in sorted order";
