@@ -201,9 +201,7 @@ XGBOOST_REGISTER_OBJECTIVE(PoissonRegression, "count:poisson")
 class CoxRegression : public ObjFunction {
  public:
   // declare functions
-  void Configure(const std::vector<std::pair<std::string, std::string> >& args) override {
-
-  }
+  void Configure(const std::vector<std::pair<std::string, std::string> >& args) override {}
   void GetGradient(const std::vector<bst_float> &preds,
                    const MetaInfo &info,
                    int iter,
@@ -212,11 +210,11 @@ class CoxRegression : public ObjFunction {
     CHECK_EQ(preds.size(), info.labels.size()) << "labels are not correctly provided";
     out_gpair->resize(preds.size());
 
-    bool label_correct = true; // we check if labels are sorted by absolute value
+    bool label_correct = true;  // we check if labels are sorted by absolute value
     const omp_ulong ndata = static_cast<omp_ulong>(preds.size()); // NOLINT(*)
 
     // pre-compute a sum
-    double exp_p_sum = 0; // we use double because we might need the precision with large datasets
+    double exp_p_sum = 0;  // we use double because we might need the precision with large datasets
     for (omp_ulong i = 0; i < ndata; ++i) {
       exp_p_sum += std::exp(preds[i]);
     }

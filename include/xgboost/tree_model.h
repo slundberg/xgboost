@@ -510,7 +510,8 @@ class RegTree: public TreeModel<bst_float, RTreeNodeStat> {
                        unsigned node_index, unsigned unique_depth,
                        PathElement *parent_unique_path, bst_float parent_zero_fraction,
                        bst_float parent_one_fraction, int parent_feature_index,
-                       int condition, unsigned condition_feature, bst_float condition_fraction) const;
+                       int condition, unsigned condition_feature,
+                       bst_float condition_fraction) const;
 
   /*!
    * \brief calculate the approximate feature contributions for the given root
@@ -717,7 +718,8 @@ inline void RegTree::TreeShap(const RegTree::FVec& feat, bst_float *phi,
                               unsigned node_index, unsigned unique_depth,
                               PathElement *parent_unique_path, bst_float parent_zero_fraction,
                               bst_float parent_one_fraction, int parent_feature_index,
-                              int condition, unsigned condition_feature, bst_float condition_fraction) const {
+                              int condition, unsigned condition_feature,
+                              bst_float condition_fraction) const {
   const auto node = (*this)[node_index];
 
   // stop if we have no weight coming down to us
@@ -738,7 +740,8 @@ inline void RegTree::TreeShap(const RegTree::FVec& feat, bst_float *phi,
     for (unsigned i = 1; i <= unique_depth; ++i) {
       const bst_float w = UnwoundPathSum(unique_path, unique_depth, i);
       const PathElement &el = unique_path[i];
-      phi[el.feature_index] += w * (el.one_fraction - el.zero_fraction) * node.leaf_value() * condition_fraction;
+      phi[el.feature_index] += w * (el.one_fraction - el.zero_fraction)
+                                 * node.leaf_value() * condition_fraction;
     }
 
   // internal node
@@ -809,7 +812,8 @@ inline void RegTree::CalculateContributions(const RegTree::FVec& feat, unsigned 
   const int maxd = this->MaxDepth(root_id)+2;
   PathElement *unique_path_data = new PathElement[(maxd*(maxd+1))/2];
 
-  TreeShap(feat, out_contribs, root_id, 0, unique_path_data, 1, 1, -1, condition, condition_feature, 1);
+  TreeShap(feat, out_contribs, root_id, 0, unique_path_data,
+           1, 1, -1, condition, condition_feature, 1);
   delete[] unique_path_data;
 }
 

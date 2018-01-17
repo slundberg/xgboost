@@ -234,13 +234,11 @@ class CPUPredictor : public Predictor {
     // make sure contributions is zeroed, we could be reusing a previously
     // allocated one
     std::fill(contribs.begin(), contribs.end(), 0);
-    //if (approximate) {
-      // initialize tree node mean values
-      #pragma omp parallel for schedule(static)
-      for (bst_omp_uint i = 0; i < ntree_limit; ++i) {
-        model.trees[i]->FillNodeMeanValues();
-      }
-    //}
+    // initialize tree node mean values
+    #pragma omp parallel for schedule(static)
+    for (bst_omp_uint i = 0; i < ntree_limit; ++i) {
+      model.trees[i]->FillNodeMeanValues();
+    }
     // start collecting the contributions
     dmlc::DataIter<RowBatch>* iter = p_fmat->RowIterator();
     const std::vector<bst_float>& base_margin = info.base_margin;
@@ -265,7 +263,8 @@ class CPUPredictor : public Predictor {
               continue;
             }
             if (!approximate) {
-              model.trees[j]->CalculateContributions(feats, root_id, p_contribs, condition, condition_feature);
+              model.trees[j]->CalculateContributions(feats, root_id, p_contribs,
+                                                     condition, condition_feature);
             } else {
               model.trees[j]->CalculateContributionsApprox(feats, root_id, p_contribs);
             }
@@ -299,7 +298,8 @@ class CPUPredictor : public Predictor {
     std::vector<bst_float> contribs_on(info.num_row * (ncolumns+1) * ngroup);
 
     // Compute the difference in effects when conditioning on each of the features on and off
-    // see: Axiomatic characterizations of probabilistic and cardinal-probabilistic interaction indices
+    // see: Axiomatic characterizations of probabilistic and
+    //      cardinal-probabilistic interaction indices
     for (int i = 0; i < ncolumns; ++i) {
       PredictContribution(p_fmat, &contribs_off, model, ntree_limit, approximate, -1, i);
       PredictContribution(p_fmat, &contribs_on, model, ntree_limit, approximate, 1, i);

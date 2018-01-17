@@ -307,7 +307,7 @@ struct EvalMAP : public EvalRankList {
 /*! \brief Cox: Partial likelihood of the Cox proportioanl hazards model */
 struct EvalCox : public Metric {
  public:
-  explicit EvalCox() {}
+  EvalCox() {}
   bst_float Eval(const std::vector<bst_float> &preds,
                  const MetaInfo &info,
                  bool distributed) const override {
@@ -317,7 +317,7 @@ struct EvalCox : public Metric {
     const bst_omp_uint ndata = static_cast<bst_omp_uint>(info.labels.size());
 
     // pre-compute a sum for the denominator
-    double exp_p_sum = 0; // we use double because we might need the precision with large datasets
+    double exp_p_sum = 0;  // we use double because we might need the precision with large datasets
     for (omp_ulong i = 0; i < ndata; ++i) {
       exp_p_sum += preds[i];
     }
@@ -339,7 +339,7 @@ struct EvalCox : public Metric {
       }
     }
 
-    return out/num_events; // normalize by the number of events
+    return out/num_events;  // normalize by the number of events
   }
 
   const char* Name() const override {
