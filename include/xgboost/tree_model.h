@@ -731,7 +731,7 @@ inline void RegTree::TreeShap(const RegTree::FVec& feat, bst_float *phi,
   PathElement *unique_path = parent_unique_path + unique_depth + 1;
   std::copy(parent_unique_path, parent_unique_path + unique_depth + 1, unique_path);
 
-  if (condition == 0 || condition_feature != parent_feature_index) {
+  if (condition == 0 || condition_feature != static_cast<unsigned>(parent_feature_index)) {
     ExtendPath(unique_path, unique_depth, parent_zero_fraction,
                parent_one_fraction, parent_feature_index);
   }

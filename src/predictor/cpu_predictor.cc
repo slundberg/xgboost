@@ -300,13 +300,13 @@ class CPUPredictor : public Predictor {
     // Compute the difference in effects when conditioning on each of the features on and off
     // see: Axiomatic characterizations of probabilistic and
     //      cardinal-probabilistic interaction indices
-    for (int i = 0; i < ncolumns; ++i) {
+    for (size_t i = 0; i < ncolumns; ++i) {
       PredictContribution(p_fmat, &contribs_off, model, ntree_limit, approximate, -1, i);
       PredictContribution(p_fmat, &contribs_on, model, ntree_limit, approximate, 1, i);
 
-      for (int j = 0; j < info.num_row; ++j) {
-        for (int k = 0; k < ncolumns+1; ++k) {
-          for (int l = 0; l < model.param.num_output_group; ++l) {
+      for (size_t j = 0; j < info.num_row; ++j) {
+        for (size_t k = 0; k < ncolumns+1; ++k) {
+          for (size_t l = 0; l < model.param.num_output_group; ++l) {
             const unsigned cind = j*crow_chunk + k*ngroup + l;
             const unsigned oind = j*row_chunk + i*mrow_chunk + k*ngroup + l;
             contribs[oind] = contribs_on[cind] - contribs_off[cind];
