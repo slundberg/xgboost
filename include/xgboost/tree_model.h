@@ -501,6 +501,8 @@ class RegTree: public TreeModel<bst_float, RTreeNodeStat> {
    * \param feat dense feature vector, if the feature is missing the field is set to NaN
    * \param root_id starting root index of the instance
    * \param out_contribs output vector to hold the contributions
+   * \param condition fix one feature to either off (-1) on (1) or not fixed (0 default)
+   * \param condition_feature the index of the feature to fix
    */
   inline void CalculateContributions(const RegTree::FVec& feat, unsigned root_id,
                                      bst_float *out_contribs,

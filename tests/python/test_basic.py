@@ -6,6 +6,7 @@ import itertools
 import json
 import re
 import scipy
+import scipy.special
 
 dpath = 'demo/data/'
 rng = np.random.RandomState(1994)
