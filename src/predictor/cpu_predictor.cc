@@ -289,13 +289,13 @@ class CPUPredictor : public Predictor {
     size_t ncolumns = model.param.num_feature;
     const unsigned row_chunk = ncolumns * ncolumns * ngroup;
     const unsigned mrow_chunk = ncolumns * ngroup;
-    const unsigned crow_chunk = (ncolumns+1) * ngroup;
+    const unsigned crow_chunk = (ncolumns + 1) * ngroup;
 
     // allocate space for (number of features^2) times the number of rows and tmp off/on contribs
     std::vector<bst_float>& contribs = *out_contribs;
     contribs.resize(info.num_row * ncolumns * ncolumns * ngroup);
-    std::vector<bst_float> contribs_off(info.num_row * (ncolumns+1) * ngroup);
-    std::vector<bst_float> contribs_on(info.num_row * (ncolumns+1) * ngroup);
+    std::vector<bst_float> contribs_off(info.num_row * (ncolumns + 1) * ngroup);
+    std::vector<bst_float> contribs_on(info.num_row * (ncolumns + 1) * ngroup);
 
     // Compute the difference in effects when conditioning on each of the features on and off
     // see: Axiomatic characterizations of probabilistic and
@@ -305,10 +305,10 @@ class CPUPredictor : public Predictor {
       PredictContribution(p_fmat, &contribs_on, model, ntree_limit, approximate, 1, i);
 
       for (size_t j = 0; j < info.num_row; ++j) {
-        for (size_t k = 0; k < ncolumns+1; ++k) {
-          for (size_t l = 0; l < model.param.num_output_group; ++l) {
-            const unsigned cind = j*crow_chunk + k*ngroup + l;
-            const unsigned oind = j*row_chunk + i*mrow_chunk + k*ngroup + l;
+        for (size_t k = 0; k < ncolumns + 1; ++k) {
+          for (int l = 0; l < model.param.num_output_group; ++l) {
+            const unsigned cind = j * crow_chunk + k * ngroup + l;
+            const unsigned oind = j * row_chunk + i * mrow_chunk + k * ngroup + l;
             contribs[oind] = contribs_on[cind] - contribs_off[cind];
           }
         }

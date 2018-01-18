@@ -791,11 +791,11 @@ inline void RegTree::TreeShap(const RegTree::FVec& feat, bst_float *phi,
     }
 
     TreeShap(feat, phi, hot_index, unique_depth + 1, unique_path,
-             hot_zero_fraction*incoming_zero_fraction, incoming_one_fraction,
+             hot_zero_fraction * incoming_zero_fraction, incoming_one_fraction,
              split_index, condition, condition_feature, hot_condition_fraction);
 
     TreeShap(feat, phi, cold_index, unique_depth + 1, unique_path,
-             cold_zero_fraction*incoming_zero_fraction, 0,
+             cold_zero_fraction * incoming_zero_fraction, 0,
              split_index, condition, condition_feature, cold_condition_fraction);
   }
 }
